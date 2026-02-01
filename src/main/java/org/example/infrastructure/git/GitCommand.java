@@ -102,15 +102,20 @@ public class GitCommand {
                 .call();
 
         boolean isHeadMissing = git.getRepository().resolve("HEAD") == null;
+        boolean branchExists = git.getRepository().findRef(LOG_BRANCH) != null;
         if (isHeadMissing) {
             git.checkout()
                     .setOrphan(true)
                     .setName(LOG_BRANCH)
                     .call();
-        } else {
+        } else if (branchExists) {
             git.checkout()
                     .setName(LOG_BRANCH)
+                    .call();
+        } else {
+            git.checkout()
                     .setCreateBranch(true)
+                    .setName(LOG_BRANCH)
                     .call();
         }
 
