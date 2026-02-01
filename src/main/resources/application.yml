@@ -1,4 +1,4 @@
-GITHUB_REVIEW_LOG_URI: ""
+GITHUB_REVIEW_LOG_URI: "https://github.com/Robin-Jason/OpenAI-Code-Review-log.git"
 GITHUB_TOKEN: ""
 COMMIT_PROJECT: ""
 COMMIT_BRANCH: ""
