@@ -1,5 +1,7 @@
 package org.example.domain.service.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.example.domain.model.Model;
 import org.example.domain.service.AbstractOpenAiCodeReviewService;
 import org.example.infrastructure.git.GitCommand;
@@ -15,6 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
+
+    private static final Logger logger = LoggerFactory.getLogger(OpenAiCodeReviewService.class);
 
     /**
      * 构建评审服务实现。
@@ -34,7 +38,10 @@ public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
      */
     @Override
     protected String getDiffCode() throws IOException, InterruptedException {
-        return gitCommand.diff();
+        logger.info("[trace] starting diff");
+        String diff = gitCommand.diff();
+        logger.info("[trace] diff done, length={}", diff == null ? 0 : diff.length());
+        return diff;
     }
 
     /**
@@ -45,6 +52,7 @@ public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
      */
     @Override
     protected String codeReview(String diffCode) throws Exception {
+        logger.info("[trace] starting llm call");
         ChatCompletionRequestDTO chatCompletionRequest = new ChatCompletionRequestDTO();
         chatCompletionRequest.setModel(Model.GLM_4_FLASH.getCode());
         chatCompletionRequest.setMessages(new ArrayList<ChatCompletionRequestDTO.Prompt>() {
@@ -85,6 +93,7 @@ public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
         });
 
         ChatCompletionSyncResponseDTO completions = openAI.completions(chatCompletionRequest);
+        logger.info("[trace] llm call done");
         ChatCompletionSyncResponseDTO.Message message = completions.getChoices().get(0).getMessage();
         return message.getContent();
     }
@@ -97,7 +106,10 @@ public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
      */
     @Override
     protected String recordCodeReview(String recommend) throws Exception {
-        return gitCommand.commitAndPush(recommend);
+        logger.info("[trace] starting git commit/push");
+        String url = gitCommand.commitAndPush(recommend);
+        logger.info("[trace] git commit/push done");
+        return url;
     }
 
     /**
@@ -107,12 +119,14 @@ public class OpenAiCodeReviewService extends AbstractOpenAiCodeReviewService {
      */
     @Override
     protected void pushMessage(String logUrl) throws Exception {
+        logger.info("[trace] starting wechat send");
         Map<String, Map<String, String>> data = new HashMap<>();
         TemplateMessageDTO.put(data, TemplateMessageDTO.TemplateKey.REPO_NAME, gitCommand.getProject());
         TemplateMessageDTO.put(data, TemplateMessageDTO.TemplateKey.BRANCH_NAME, gitCommand.getBranch());
         TemplateMessageDTO.put(data, TemplateMessageDTO.TemplateKey.COMMIT_AUTHOR, gitCommand.getAuthor());
         TemplateMessageDTO.put(data, TemplateMessageDTO.TemplateKey.COMMIT_MESSAGE, gitCommand.getMessage());
         wechat.sendTemplateMessage(logUrl, data);
+        logger.info("[trace] wechat send done");
     }
 
 }

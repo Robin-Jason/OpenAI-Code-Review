@@ -14,6 +14,8 @@ import java.util.Date;
 
 public class GitCommand {
 
+    private static final String LOG_BRANCH = "main";
+
     private final Logger logger = LoggerFactory.getLogger(GitCommand.class);
 
     private final String githubReviewLogUri;
@@ -99,6 +101,11 @@ public class GitCommand {
                 .setCredentialsProvider(new UsernamePasswordCredentialsProvider(githubToken, ""))
                 .call();
 
+        git.checkout()
+                .setName(LOG_BRANCH)
+                .setCreateBranch(true)
+                .call();
+
         // 创建分支
         String dateFolderName = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         File dateFolder = new File("repo/" + dateFolderName);
@@ -115,11 +122,11 @@ public class GitCommand {
         // 提交内容
         git.add().addFilepattern(dateFolderName + "/" + fileName).call();
         git.commit().setMessage("add code review new file" + fileName).call();
-        git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(githubToken, "")).call();
+        git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(githubToken, "")).add(LOG_BRANCH).call();
 
         logger.info("openai-code-review git commit and push done! {}", fileName);
 
-        return githubReviewLogUri + "/blob/master/" + dateFolderName + "/" + fileName;
+        return githubReviewLogUri + "/blob/" + LOG_BRANCH + "/" + dateFolderName + "/" + fileName;
     }
 
     /**

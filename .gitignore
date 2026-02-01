@@ -36,3 +36,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+# local secrets
+application.yml
+
+# local git clone for review logs
+repo/

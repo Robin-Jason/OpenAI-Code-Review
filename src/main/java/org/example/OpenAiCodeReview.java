@@ -20,14 +20,14 @@ public class OpenAiCodeReview {
     private static final Map<String, Object> CONFIG = loadConfig();
 
     // 配置配置
-    private String weixin_appid = "wx5a228ff69e28a91f";
-    private String weixin_secret = "0bea03aa1310bac050aae79dd8703928";
-    private String weixin_touser = "or0Ab6ivwmypESVp_bYuk92T6SvU";
-    private String weixin_template_id = "l2HTkntHB71R4NQTW77UkcqvSOIFqE_bss1DAVQSybc";
+    private String weixin_appid;
+    private String weixin_secret;
+    private String weixin_touser;
+    private String weixin_template_id;
 
     // ChatGLM 配置
-    private String chatglm_apiHost = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-    private String chatglm_apiKeySecret = "";
+    private String chatglm_apiHost;
+    private String chatglm_apiKeySecret;
 
     // Github 配置
     private String github_review_log_uri;
@@ -45,13 +45,18 @@ public class OpenAiCodeReview {
      * @throws Exception 评审流程中的异常
      */
     public static void main(String[] args) throws Exception {
+        String project = firstNonEmpty(getConfigOptional("COMMIT_PROJECT"), getGitProject());
+        String branch = firstNonEmpty(getConfigOptional("COMMIT_BRANCH"), getGitBranch());
+        String author = firstNonEmpty(getConfigOptional("COMMIT_AUTHOR"), getGitAuthor());
+        String message = firstNonEmpty(getConfigOptional("COMMIT_MESSAGE"), getGitMessage());
+
         GitCommand gitCommand = new GitCommand(
                 getConfig("GITHUB_REVIEW_LOG_URI"),
                 getConfig("GITHUB_TOKEN"),
-                getConfig("COMMIT_PROJECT"),
-                getConfig("COMMIT_BRANCH"),
-                getConfig("COMMIT_AUTHOR"),
-                getConfig("COMMIT_MESSAGE")
+                project,
+                branch,
+                author,
+                message
         );
 
         /**
@@ -87,6 +92,63 @@ public class OpenAiCodeReview {
             throw new RuntimeException("application.yml content is invalid");
         } catch (Exception e) {
             throw new RuntimeException("failed to load application.yml", e);
+        }
+    }
+
+    private static String getConfigOptional(String key) {
+        String value = System.getenv(key);
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+        Object fromFile = CONFIG.get(key);
+        if (fromFile == null) {
+            return null;
+        }
+        return String.valueOf(fromFile);
+    }
+
+    private static String firstNonEmpty(String first, String second) {
+        if (first != null && !first.isEmpty()) {
+            return first;
+        }
+        return second;
+    }
+
+    private static String getGitProject() {
+        String top = runGit("rev-parse", "--show-toplevel");
+        if (top == null || top.isEmpty()) {
+            return "";
+        }
+        int idx = top.replace("\\", "/").lastIndexOf('/');
+        return idx >= 0 ? top.substring(idx + 1) : top;
+    }
+
+    private static String getGitBranch() {
+        return runGit("rev-parse", "--abbrev-ref", "HEAD");
+    }
+
+    private static String getGitAuthor() {
+        return runGit("log", "-1", "--pretty=format:%an");
+    }
+
+    private static String getGitMessage() {
+        return runGit("log", "-1", "--pretty=format:%s");
+    }
+
+    private static String runGit(String... args) {
+        try {
+            String[] cmd = new String[args.length + 1];
+            cmd[0] = "git";
+            System.arraycopy(args, 0, cmd, 1, args.length);
+            Process process = new ProcessBuilder(cmd).start();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line = reader.readLine();
+                process.waitFor();
+                return line == null ? "" : line.trim();
+            }
+        } catch (Exception e) {
+            return "";
         }
     }
 
