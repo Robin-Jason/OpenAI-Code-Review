@@ -8,7 +8,7 @@ curl -X POST \
           "messages": [
               {
                   "role": "user",
-                  "content": "你好"
+                  "content": "你好，你是哪个模型"
               }
           ]
         }' \
