@@ -101,10 +101,18 @@ public class GitCommand {
                 .setCredentialsProvider(new UsernamePasswordCredentialsProvider(githubToken, ""))
                 .call();
 
-        git.checkout()
-                .setName(LOG_BRANCH)
-                .setCreateBranch(true)
-                .call();
+        boolean isHeadMissing = git.getRepository().resolve("HEAD") == null;
+        if (isHeadMissing) {
+            git.checkout()
+                    .setOrphan(true)
+                    .setName(LOG_BRANCH)
+                    .call();
+        } else {
+            git.checkout()
+                    .setName(LOG_BRANCH)
+                    .setCreateBranch(true)
+                    .call();
+        }
 
         // 创建分支
         String dateFolderName = new SimpleDateFormat("yyyy-MM-dd").format(new Date());

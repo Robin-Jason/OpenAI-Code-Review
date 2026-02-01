@@ -9,6 +9,6 @@ public class ApiTest {
         String apiKeySecret = "febc2789803a43b48ae4d02f7b8342d8.CTTTXZRtWv9QLoLo";
 
         String token = BearerTokenUtils.getToken(apiKeySecret);
-        System.out.println(token);
+        System.out.println("token" + token);
     }
 }
