@@ -41,3 +41,5 @@ application.yml
 
 # local git clone for review logs
 repo/
+.idea/
+dependency-reduced-pom.xml
