@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 public class GitCommand {
 
@@ -74,8 +76,15 @@ public class GitCommand {
         StringBuilder diffCode = new StringBuilder();
         BufferedReader diffReader = new BufferedReader(new InputStreamReader(diffProcess.getInputStream()));
         String line;
+        Set<String> changedFiles = new LinkedHashSet<>();
         while ((line = diffReader.readLine()) != null) {
             diffCode.append(line).append("\n");
+            if (line.startsWith("+++ b/")) {
+                String path = line.substring(6).trim();
+                if (!path.equals("/dev/null")) {
+                    changedFiles.add(path);
+                }
+            }
         }
         diffReader.close();
 
@@ -84,6 +93,7 @@ public class GitCommand {
             throw new RuntimeException("Failed to get diff, exit code:" + exitCode);
         }
 
+        appendJavaContext(diffCode, latestCommitHash, changedFiles);
         return diffCode.toString();
     }
 
@@ -177,4 +187,62 @@ public class GitCommand {
     public String getMessage() {
         return message;
     }
+
+    /**
+     * 为变更的 Java 文件追加完整上下文，提升评审准确性。
+     *
+     * @param diffCode         diff 内容容器
+     * @param latestCommitHash 最新提交 hash
+     * @param changedFiles     变更文件路径集合
+     */
+    private void appendJavaContext(StringBuilder diffCode, String latestCommitHash, Set<String> changedFiles) {
+        if (changedFiles.isEmpty()) {
+            return;
+        }
+        diffCode.append("\n\n===== Java Context (full file) =====\n");
+        for (String path : changedFiles) {
+            if (!path.endsWith(".java")) {
+                continue;
+            }
+            String content = readFileAtCommit(latestCommitHash, path);
+            if (content == null || content.isEmpty()) {
+                content = readFileAtCommit(latestCommitHash + "^", path);
+            }
+            if (content == null || content.isEmpty()) {
+                continue;
+            }
+            diffCode.append("\n----- ").append(path).append(" -----\n");
+            diffCode.append(content).append("\n");
+        }
+    }
+
+    /**
+     * 读取指定提交中的文件内容。
+     *
+     * @param commit 提交 hash
+     * @param path   文件路径
+     * @return 文件内容（读取失败返回空串）
+     */
+    private String readFileAtCommit(String commit, String path) {
+        try {
+            ProcessBuilder showProcessBuilder = new ProcessBuilder("git", "show", commit + ":" + path);
+            showProcessBuilder.directory(new File("."));
+            Process showProcess = showProcessBuilder.start();
+            StringBuilder content = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(showProcess.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append("\n");
+                }
+            }
+            int exitCode = showProcess.waitFor();
+            if (exitCode != 0) {
+                return "";
+            }
+            return content.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
 }
